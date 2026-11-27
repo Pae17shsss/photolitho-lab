@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Litho Process Cinema</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Noto+Sans+TC:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a calm lab narrator; one wafer, one film, ten scenes.
+   IDEA: a cleanroom cutaway viewer, the wafer sliced like a cake under yellow-free light.
+   PICTURE: a large live side-view of the wafer that changes step by step, with moving light, liquid, heat and plasma.
+   COLOUR and TYPE: deep plum night, lavender oxide, peach photoresist, violet UV; Lexend + Noto Sans TC.
+   LAYOUT: progress rail on top, the stage large, a caption column beside it; stacks on phones. */
+:root{color-scheme:dark;--bg:#1b1730;--panel:#251f3a;--panel2:#342c50;--ink:#ece9f7;--mute:#a9a3c6;--lav:#6f63bc;--lavl:#c9c2f2;--peach:#edb27a;--peachd:#d98a3e;--warn:#f5a8a0}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Lexend,system-ui,sans-serif;overflow-x:clip}
+.zh{font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif}
+header{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;padding:18px max(3vw,14px) 6px}
+header h1{font-size:clamp(22px,2.6vw,30px);line-height:1.1;margin:0}
+header p{margin:0;color:var(--mute);font-size:14px}
+.rail{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:2px;padding:8px max(3vw,14px) 4px;position:relative}
+.rail button{background:none;border:0;color:var(--mute);font:500 12px Lexend,sans-serif;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:4px 0;min-height:44px}
+.rail .dot{width:22px;height:22px;border-radius:50%;border:1.5px solid #6b6490;background:var(--panel);transition:all .4s}
+.rail button.done .dot{background:var(--lav);border-color:var(--lav)}
+.rail button.on .dot{background:var(--peach);border-color:var(--peach);transform:scale(1.35);box-shadow:0 0 0 6px rgba(237,178,122,.18)}
+.rail button.on{color:var(--peach);font-weight:700}
+.rail button:focus-visible,.ctl button:focus-visible{outline:2px solid var(--peach);outline-offset:2px}
+main{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:18px;padding:8px max(3vw,14px) 22px;align-items:start}
+.stage{background:var(--panel);border-radius:16px;overflow:hidden;position:relative}
+.stage svg{display:block;width:100%;height:auto}
+.cap{background:var(--panel);border-radius:16px;padding:22px 22px 18px}
+.num{font-size:56px;font-weight:700;color:var(--peach);line-height:1}
+.phase{font-size:13px;color:var(--mute);margin-top:6px}
+.cap h2{font-size:clamp(28px,3vw,40px);line-height:1.08;margin:10px 0 2px;text-wrap:balance}
+.term{font-size:20px;color:var(--lavl)}.term span{color:var(--mute);font-family:Lexend;font-size:16px;margin-left:8px}
+.line{font-size:17px;margin:14px 0 16px;min-height:5.2em}
+.key{background:var(--panel2);border-radius:12px;padding:12px 16px}
+.key b{display:block;color:var(--peach);font-size:24px;line-height:1.2}
+.key small{color:var(--ink);font-size:14px}
+.warn{color:#f3d3cf;font-size:14px;margin-top:12px}.warn b{color:var(--warn)}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border-top:1px solid #3a3256;align-items:center}
+.ctl button{min-height:44px;padding:0 16px;border-radius:22px;border:1px solid #4a4270;background:var(--panel2);color:var(--ink);font:500 15px Lexend,sans-serif;cursor:pointer}
+.ctl button.main{background:var(--lav);border-color:var(--lav);font-weight:700;min-width:120px}
+.ctl button[aria-pressed=true]{background:var(--peach);color:#2d2840;border-color:var(--peach)}
+.ctl .sp{flex:1}
+.hint{color:var(--mute);font-size:13px;padding:0 max(3vw,14px) 20px}
+.bar{position:absolute;left:0;bottom:0;height:3px;background:var(--peach);width:0}
+@media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}.line{min-height:0}}
+@media(max-width:600px){.rail button{font-size:0}.rail .dot{width:16px;height:16px}.num{font-size:40px}}
+@media(prefers-reduced-motion:reduce){.rail .dot{transition:none}}
+</style>
+</head>
+<body>
+<header><h1>Photolithography · Process Cinema</h1><p>One wafer, ten steps, seen from the side. Use ← → or the buttons. <span class="zh">微影製程</span></p></header>
+<nav class="rail" id="rail" aria-label="Steps"></nav>
+<main>
+  <section class="stage" aria-label="Animated cross-section">
+    <svg id="sv" viewBox="0 0 1000 560" role="img" aria-label="Side view of a silicon wafer during photolithography"></svg>
+    <div class="ctl">
+      <button id="prev" aria-label="Previous step">◀ Prev</button>
+      <button id="play" class="main">▶ Play all</button>
+      <button id="next" aria-label="Next step">Next ▶</button>
+      <span class="sp"></span>
+      <button id="snd" aria-pressed="true">Sound</button>
+      <button id="voice" aria-pressed="false">Voice</button>
+      <button id="neg" aria-pressed="false">Negative resist</button>
+      <button id="fs">Fullscreen</button>
+    </div>
+    <div class="bar" id="bar"></div>
+  </section>
+  <aside class="cap" aria-live="polite">
+    <div class="num" id="cnum">00</div><div class="phase" id="cphase"></div>
+    <h2 id="ctitle"></h2><div class="term"><span class="zh" id="czh"></span><span id="cpy"></span></div>
+    <p class="line" id="cline"></p>
+    <div class="key"><b id="ckey"></b><small id="ckeyl"></small></div>
+    <div class="warn" id="cwarn"></div>
+  </aside>
+</main>
+<p class="hint">Keys: ← → step · Space play/pause · N negative resist · F fullscreen. Simplified schematic: the projection lens and real proportions are not shown.</p>
+<script>
+{
+const C={si:'#5b5577',ox:'#9c93d8',pr:'#edb27a',prD:'#d98a3e',pale:'#fce6cc',uv:'#a78bfa',teal:'#5eeAD4',blue:'#7cc4f0',mag:'#e879f9',hot:'#e4572e',chrome:'#cfcbdd',glass:'#a9c9ee',panel:'#251f3a',yel:'#f4d35e',neg:'#c96f2a'};
+const STEPS=[
+ {t:'Meet our wafer',zh:'晶圓',py:'jīngyuán',ph:'The starting point',l:'A silicon wafer with a thin SiO₂ layer on top. Our goal: carve two windows, the dashed boxes. First problem: dust.',k:['1 layer','= one full trip through these ten steps'],w:''},
+ {t:'Clean',zh:'清洗',py:'qīngxǐ',ph:'Prepare · steps 1–3',l:'The wafer spins while chemicals and ultra-pure DI water wash away particles, organic films and metal traces. Then it is spun dry.',k:['1 speck','of dust can kill a whole chip'],w:'leftover particles become holes and bumps in the pattern.'},
+ {t:'Coat',zh:'塗佈',py:'túbù',ph:'Prepare · steps 1–3',l:'First HMDS primer makes the surface water-repelling so resist sticks. Then liquid resist is dropped in the center and spun into a thin, even film.',k:['3,000–5,000 rpm','faster spin → thinner film (about 1 µm)'],w:'poor priming → film peels; uneven spin → thick edge bead.'},
+ {t:'Soft bake',zh:'軟烤',py:'ruǎnkǎo',ph:'Prepare · steps 1–3',l:'On a hot plate the solvent evaporates and the sticky liquid becomes a solid film.',k:['90–100 °C','about one minute on a hot plate'],w:'under-bake → sticks to the mask; over-bake → loses sensitivity.'},
+ {t:'Align',zh:'對準',py:'duìzhǔn',ph:'Print · steps 4–6',l:'The photomask slides in. Cameras match the alignment marks on mask and wafer so this layer lands exactly on the one below.',k:['≤ 1.5 nm','overlay on today\'s EUV tools: a few atoms'],w:'misaligned → wires miss the layer below.'},
+ {t:'Expose',zh:'曝光',py:'pùguāng',ph:'Print · steps 4–6',l:'UV light passes the clear windows of the mask. Where it lands, the resist chemistry changes: a hidden “latent image”.',k:['193 nm / 13.5 nm','deep-UV and EUV light used today'],w:'wrong dose or focus → lines too wide, too thin or blurry.'},
+ {t:'Post-exposure bake',zh:'曝後烤',py:'pùhòukǎo',ph:'Print · steps 4–6',l:'A second bake. The acid made by light spreads and switches the resist, one photon causing many reactions.',k:['~110 °C','60–90 s, timing is critical'],w:'too long or hot → acid wanders, edges blur.'},
+ {t:'Develop',zh:'顯影',py:'xiǎnyǐng',ph:'Reveal & transfer · steps 7–10',l:'Developer washes over the wafer. With positive resist the exposed parts dissolve and the windows open. Toggle “Negative resist” to see the opposite.',k:['2.38% TMAH','the standard developer, about 60 s'],w:'under-develop → scum; over-develop → thin lines.'},
+ {t:'Hard bake',zh:'硬烤',py:'yìngkǎo',ph:'Reveal & transfer · steps 7–10',l:'A final bake toughens the remaining resist for the attack that comes next. Engineers inspect the line widths now.',k:['~120 °C','hotter than the soft bake'],w:'too hot → resist melts and rounds off.'},
+ {t:'Etch',zh:'蝕刻',py:'shíkè',ph:'Reveal & transfer · steps 7–10',l:'Plasma ions rain down. The resist acts like an umbrella; only the open areas of SiO₂ are cut away.',k:['Dry or wet','fluorine plasma, or HF acid for SiO₂'],w:'over-etch or undercut → wrong size, damaged layer.'},
+ {t:'Strip',zh:'去光阻',py:'qù guāngzǔ',ph:'Reveal & transfer · steps 7–10',l:'Oxygen plasma burns the resist away (“ashing”). The windows stay, exactly on target. The pattern is permanent.',k:['O₂ plasma','“ashing” burns the resist away'],w:'leftover residue contaminates the next layer.'},
+ {t:'One loop = one layer',zh:'層層堆疊',py:'céngcéng duīdié',ph:'Then repeat',l:'A chip is a skyscraper: transistors on the ground floor, 10–20 floors of copper wiring above. Each floor needs its own trip through the loop.',k:['dozens of loops','for one advanced chip, over months in the fab'],w:''}];
+const NAMES=['Clean','Coat','Soft bake','Align','Expose','PEB','Develop','Hard bake','Etch','Strip'];
+const SPL={A:[120,310],E1:[310,432],B:[432,568],E2:[568,690],C:[690,880]};
+const RT=330,RB=380,OT=384,OB=420,SB=500;
+const sv=document.getElementById('sv');
+const NS='http://www.w3.org/2000/svg';
+const el=(tag,a,p=sv)=>{const e=document.createElementNS(NS,tag);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e};
+// static decor
+el('text',{x:885,y:28,fill:'#a9a3c6','font-size':13,'font-family':'Lexend','letter-spacing':2}).textContent='SIDE VIEW';
+const IDS=['glow','plate','chuck','motor','si','oxA','oxE1','oxB','oxE2','oxC','hm','prA','prE1','prB','prE2','prC','dg1','dg2','dev','water','mg','mc1','mc2','mc3','uvr','bm1','bm2','uvs','pl','noz','stream','f0','f1','f2','f3','f4'];
+const R={},cur={};
+IDS.forEach(id=>{R[id]=el('rect',{rx:id==='dev'||id==='pl'||id==='uvs'?10:id==='plate'?4:0});cur[id]={x:500,y:280,w:0,h:0,o:0,f:'#000000'}});
+const goals=[0,1].map(i=>el('rect',{fill:'none',stroke:'#edb27a','stroke-width':2.5,'stroke-dasharray':'8 6',opacity:0}));
+const fx=el('g',{});
+const marks=el('g',{opacity:0});
+[[205,222],[205,402]].forEach(([x,y])=>{el('rect',{x:x-14,y:y-2,width:28,height:4,fill:C.yel},marks);el('rect',{x:x-2,y:y-14,width:4,height:28,fill:C.yel},marks)});
+el('line',{x1:205,y1:236,x2:205,y2:388,stroke:C.yel,'stroke-width':2,'stroke-dasharray':'6 5'},marks);
+const tPl=el('text',{x:500,y:0,'text-anchor':'middle',fill:'#fff','font-size':17,'font-weight':700,'font-family':'Lexend','letter-spacing':2});
+const tPlate=el('text',{x:500,y:516,'text-anchor':'middle',fill:'#fff','font-size':13,'font-weight':700,'font-family':'Lexend','letter-spacing':2});
+const lab=(y,col)=>{const g=el('g',{opacity:0});const a=el('text',{x:895,y,fill:col,'font-size':16,'font-weight':700,'font-family':'Lexend'},g);const b=el('text',{x:895,y:y+19,fill:'#a9a3c6','font-size':14,'font-family':'Noto Sans TC'},g);return{g,a,b,o:0}};
+const L={pr:lab(352,C.pr),ox:lab(400,C.ox),si:lab(458,'#b7b2ce'),mask:lab(218,C.chrome),x:lab(150,'#ece9f7')};
+L.pr.a.textContent='Photoresist';L.pr.b.textContent='光阻';L.ox.a.textContent='SiO₂ layer';L.ox.b.textContent='二氧化矽';L.si.a.textContent='Silicon';L.si.b.textContent='矽晶圓';L.mask.a.textContent='Photomask';L.mask.b.textContent='光罩';
+const cap=el('text',{x:120,y:545,fill:'#ece9f7','font-size':16,'font-family':'Lexend',opacity:0});
+
+let step=0,t0=performance.now(),neg=false,playing=false,timers=[];
+const hex=(c)=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16));
+const mix=(a,b,k)=>{const A=hex(a),B=hex(b);return'#'+A.map((v,i)=>Math.round(v+(B[i]-v)*k).toString(16).padStart(2,'0')).join('')};
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function target(k,t){
+  const T={};const R2=(id,x,y,w,h,f,o=1)=>T[id]={x,y,w,h,f,o};
+  const keepPR=neg?['E1','E2']:['A','B','C'],gonePR=neg?['A','B','C']:['E1','E2'];
+  R2('si',120,OT+36,760,80,C.si);
+  const etched=(k===9&&t>1.8)||k>=10;
+  ['A','E1','B','E2','C'].forEach(p=>{const[a,b]=SPL[p];const gone=gonePR.includes(p)&&etched;R2('ox'+p,a,gone?OB:OT,b-a,gone?0:36,C.ox)});
+  if(k>=2&&k<=7){const g=k===2?cl(t/1.6,0,1):1;R2('hm',500-380*g,RB,760*g,4,C.teal,k===7&&t>1.5?0:1)}
+  // resist
+  if(k>=2&&k<=10){
+    let s=760/2;if(k===2){s=t<2.2?0:cl((t-2.4)*420,0,380)}
+    const thick=k===2?cl(70-(t-2.4)*12,50,70):50;
+    ['A','E1','B','E2','C'].forEach(p=>{let[a,b]=SPL[p];a=Math.max(a,500-s);b=Math.min(b,500+s);const w=Math.max(0,b-a);
+      const isE=p.startsWith('E');let f=C.pr;
+      if(isE&&((k===5&&t>1.6)||(k>=6&&k<=7)))f=neg?C.neg:C.pale;
+      if(k>=8)f=C.prD;
+      let y=RB-thick,h=thick,o=w>0?1:0;
+      const gone=gonePR.includes(p);
+      if(gone&&(k===7&&t>1.4||k>7)){y=RB;h=0}
+      if(k===10&&t>1.0){o=0}
+      R2('pr'+p,a,y,w,h,f,o)});
+  }
+  if(k===1||k===2){R2('chuck',465,SB,70,45,'#8a84a8');R2('motor',415,SB+45,170,18,'#4a4462');R2('noz',485,150,30,70,C.chrome);
+    if(k===1&&t>0.3)R2('stream',496,220,8,OT-220-6,C.blue,0.85);
+    if(k===2&&t>2.2&&t<4.5)R2('stream',496,220,8,RT-230,C.pr)}
+  if(k===1&&t>0.6)R2('water',120,OT-8,760,8,C.blue,0.6);
+  if(k===3||k===6||k===8){R2('plate',110,SB,780,26,C.hot);R2('glow',110,260,780,SB-260,'#f08a5d',0.14)}
+  const mx=k<4?-920:0,my=k>=6?-320:0;
+  R2('mg',110+mx,200+my,780,16,C.glass,0.6);[[110,310],[432,568],[690,890]].forEach(([a,b],i)=>R2('mc'+(i+1),a+mx,216+my,b-a,12,C.chrome));
+  if(k===5){if(t>0.3){R2('uvs',110,60,780,34,C.uv);R2('uvr',110,94,780,106,C.uv,0.35)}
+    if(t>0.9){R2('bm1',310,228,122,RT-228,C.uv,0.5);R2('bm2',568,228,122,RT-228,C.uv,0.5)}}
+  if(k===7&&t>0.3){R2('dev',115,RT-42,770,42,C.blue,0.5);if(t>1.6){const g=gonePR.map(p=>SPL[p]);g.slice(0,2).forEach(([a,b],i)=>R2('dg'+(i+1),a,RT,b-a,50,C.blue,neg?0:0.5))}}
+  if(k===9&&t>0.3)R2('pl',110,60,780,110,C.mag,0.45);
+  if(k===10&&t<2.4)R2('pl',110,60,780,110,C.uv,0.3);
+  if(k===11){for(let i=0;i<5;i++){const show=t>0.5+i*0.55;R2('f'+i,140,OT-58-i*58+(show?0:-30),720,30,i%2?C.pr:'#c9c2f2',show?1:0)}}
+  return T;
+}
+function frame(now){
+  const t=(now-t0)/1000,k=step,T=target(k,t);
+  for(const id of IDS){const c=cur[id],g=T[id]||{x:c.x,y:c.y,w:c.w,h:c.h,f:c.f,o:0};const s=0.11;
+    for(const a of['x','y','w','h','o'])c[a]+=(g[a]-c[a])*s;c.f=mix(c.f,g.f,0.15);
+    const r=R[id];r.setAttribute('x',c.x.toFixed(1));r.setAttribute('y',c.y.toFixed(1));r.setAttribute('width',Math.max(0,c.w).toFixed(1));r.setAttribute('height',Math.max(0,c.h).toFixed(1));r.setAttribute('fill',c.f);r.setAttribute('opacity',c.o.toFixed(3))}
+  // floors are wiring bars: draw vias via fx below
+  const gv=(k===0)||(k===10&&t>2)||k===11;
+  ['E1','E2'].forEach((p,i)=>{const[a,b]=SPL[p];const gr=goals[i];gr.setAttribute('x',a+4);gr.setAttribute('y',OT+4);gr.setAttribute('width',b-a-8);gr.setAttribute('height',28);gr.setAttribute('opacity',gv&&!neg?1:0)});
+  marks.setAttribute('opacity',k===4&&t>1.4?1:0);
+  tPl.setAttribute('y',122);tPl.textContent=k===9?'PLASMA · fluorine gases':k===10?'O₂ PLASMA · ashing':k===5?'UV LIGHT · 193 / 13.5 nm':'';
+  tPl.setAttribute('y',k===5?83:122);tPl.setAttribute('opacity',(k===9&&t>0.5)||(k===10&&t<2.2)||(k===5&&t>0.4)?1:0);
+  tPlate.textContent=['','','','HOT PLATE · 90–100 °C','','','HOT PLATE · ~110 °C','','HOT PLATE · ~120 °C'][k]||'';
+  // labels
+  const hasPR=k>=2&&k<=10&&!(k===10&&t>1.2)&&!(k===2&&t<2.6);
+  const setL=(l,on)=>{l.o+=((on?1:0)-l.o)*0.12;l.g.setAttribute('opacity',l.o.toFixed(3))};
+  setL(L.pr,hasPR);setL(L.ox,true);setL(L.si,true);setL(L.mask,k===4||k===5);
+  const X=[['dust','微塵'],['DI water','去離子水'],[t<2.3?'HMDS primer':'liquid resist',t<2.3?'增黏劑':'液態光阻'],['solvent ↑','溶劑蒸發'],['marks','對準記號'],['exposed','曝光區'],['acid H⁺','酸擴散'],['developer','顯影液'],['inspect','檢查'],['ions','離子'],['ashing','灰化'],['wiring floors','金屬層']][k];
+  L.x.a.textContent=X[0];L.x.b.textContent=X[1];setL(L.x,k!==4&&k!==8);
+  L.x.a.setAttribute('y',k===5?300:k===11?160:150);L.x.b.setAttribute('y',k===5?319:k===11?179:169);
+  cap.setAttribute('opacity',k===0||k===11||(k===10&&t>2.2)?1:0);
+  cap.textContent=k===0?(neg?'Negative mode: the result will be the inverse pattern':'- - -  the two windows we want to carve'):k===11?'each floor = one more trip through the loop':neg?'Negative resist: islands remain, the inverse pattern':'✓ windows exactly on target';
+  particles(k,t);
+  document.getElementById('bar').style.width=playing?Math.min(100,t/DUR(k)*100)+'%':'0';
+  if(playing&&t>DUR(k)){if(step<11)go(step+1);else{playing=false;updPlay()}}
+  requestAnimationFrame(frame);
+}
+function particles(k,t){
+  let h='';const P=(n,fn)=>{for(let i=0;i<n;i++)h+=fn(i,((t*0.6+i/n)%1))};
+  if(k===0)[[150,0.1],[230,.08],[300,.11],[480,.08],[600,.1],[800,.09]].forEach(([x,d])=>h+=`<circle cx="${x}" cy="${OT-8}" r="${d*60}" fill="#e5e3ee"/>`);
+  if(k===1){const fade=cl(1-(t-1.0)*1.2,0,1);[[150,.1],[230,.08],[300,.11],[480,.08],[600,.1],[800,.09]].forEach(([x,d],i)=>h+=`<circle cx="${x+(t>1?(t-1)*(x<500?-300:300):0)}" cy="${OT-8}" r="${d*60}" fill="#e5e3ee" opacity="${fade}"/>`);
+    P(14,(i,p)=>`<circle cx="${i%2?100-p*60:900+p*60}" cy="${OT-14-p*70+p*p*90}" r="4" fill="${C.blue}" opacity="${t>0.8?1-p:0}"/>`)}
+  if(k===2){if(t<2.3)P(16,(i,p)=>`<circle cx="${140+((i*97)%720)}" cy="${150+p*220}" r="5" fill="${C.teal}" opacity="${(1-p)*cl(t*2,0,1)}"/>`);
+    else P(14,(i,p)=>`<circle cx="${i%2?110-p*70:890+p*70}" cy="${RT-6-p*60+p*p*80}" r="5" fill="${C.pr}" opacity="${(1-p)*cl((t-3)*2,0,1)}"/>`);
+    h+=`<text x="560" y="${SB+40}" fill="#a9a3c6" font-size="15" font-family="Lexend" font-weight="700">⟳ ${t<2.3?'spin':'3,000–5,000 rpm'}</text>`}
+  if(k===3)P(18,(i,p)=>`<circle cx="${140+((i*131)%720)+Math.sin(t*3+i)*6}" cy="${RT-8-p*150}" r="4" fill="#c9c2f2" opacity="${1-p}"/>`);
+  if(k===4&&t>1.4)h+=`<text x="230" y="160" fill="#ece9f7" font-size="15" font-family="Lexend">cameras match the marks</text>`;
+  if(k===5&&t>0.9)P(20,(i,p)=>{const b=i%2?SPL.E1:SPL.E2;return`<circle cx="${b[0]+12+((i*37)%(b[1]-b[0]-24))}" cy="${100+p*(RT-100)}" r="3" fill="#fff" opacity="${0.7*(1-p)}"/>`});
+  if(k===6&&t>0.6)['E1','E2'].forEach(e=>{const[a,b]=SPL[e];for(let j=0;j<4;j++)h+=`<text x="${a+15+j*25+Math.sin(t*4+j)*8}" y="${RT+30+Math.cos(t*3+j)*8}" fill="#9a5a14" font-size="14" font-weight="700" font-family="Lexend" opacity="${cl(t-0.6,0,1)}">H⁺</text>`});
+  if(k===7&&t>0.6)P(16,(i,p)=>`<circle cx="${130+((i*113)%740)}" cy="${RT-6-p*34}" r="${2+p*3}" fill="none" stroke="#fff" opacity="${0.5*(1-p)}"/>`);
+  if(k===8)h+=`<text x="230" y="160" fill="#ece9f7" font-size="15" font-family="Lexend">inspect: measure line widths</text>`;
+  if(k===9&&t>1.0)P(26,(i,p)=>{const x=125+((i*61)%750);return`<line x1="${x}" y1="${180+p*170}" x2="${x}" y2="${200+p*170}" stroke="#f0abfc" stroke-width="3" opacity="${1-p*0.7}"/>`});
+  if(k===10&&t>0.8&&t<2.6)P(14,(i,p)=>`<circle cx="${140+((i*89)%720)}" cy="${RT-p*120}" r="3" fill="#d9d4ea" opacity="${1-p}"/>`);
+  if(k===11)for(let i=0;i<5;i++){if(t>0.5+i*0.55)[220,450,700].forEach(x=>h+=`<rect x="${x+(i%2?30:0)}" y="${OT-28-i*58}" width="14" height="28" fill="#8c86a8"/>`)}
+  fx.innerHTML=h;
+}
+const DUR=(k)=>[7,7,8,7,7,7,7,8,6,8,7,7][k];
+// ---------- sound (synthesised, no files) ----------
+let AC=null,sound=true,voice=false;
+const ac=()=>{if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}return AC};
+function noise(d){const a=ac(),b=a.createBuffer(1,a.sampleRate*d,a.sampleRate),c=b.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()*2-1;const s=a.createBufferSource();s.buffer=b;return s}
+function env(g,a,t,peak,att,dec){g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+att);g.gain.exponentialRampToValueAtTime(0.0001,t+att+dec)}
+function sfx(name){if(!sound)return;const a=ac();if(!a)return;const t=a.currentTime,g=a.createGain();g.connect(a.destination);
+  const osc=(type,f1,f2,d,peak=0.2,st=0)=>{const o=a.createOscillator(),gg=a.createGain();o.type=type;o.frequency.setValueAtTime(f1,t+st);o.frequency.exponentialRampToValueAtTime(f2,t+st+d);o.connect(gg);gg.connect(a.destination);env(gg,a,t+st,peak,0.01,d);o.start(t+st);o.stop(t+st+d+0.05)};
+  const nz=(d,type,freq,peak,att=0.05)=>{const s=noise(d),f=a.createBiquadFilter();f.type=type;f.frequency.value=freq;s.connect(f);f.connect(g);env(g,a,t,peak,att,d-att);s.start(t);s.stop(t+d)};
+  if(name==='spray')nz(0.9,'bandpass',3500,0.25,0.2);
+  if(name==='sizzle')nz(1.0,'highpass',5000,0.18,0.05);
+  if(name==='slide')nz(0.7,'lowpass',600,0.35,0.3);
+  if(name==='hum'){osc('sawtooth',110,112,1.2,0.08)}
+  if(name==='flash'){osc('square',900,2400,0.25,0.07);nz(0.4,'highpass',6000,0.1,0.01)}
+  if(name==='rise')osc('sine',300,900,0.5,0.18);
+  if(name==='pop')osc('sine',700,200,0.12,0.25);
+  if(name==='chime'){osc('sine',880,880,1.0,0.15);osc('sine',1320,1320,1.0,0.1,0.08)}
+  if(name==='success')[523,659,784,1047].forEach((f,i)=>osc('triangle',f,f,0.35,0.14,i*0.12));
+}
+const CUES=[[[0.2,'rise']],[[0.3,'spray']],[[0.1,'rise'],[2.3,'spray']],[[0.3,'sizzle']],[[0.1,'slide'],[1.4,'pop']],[[0.3,'flash'],[0.9,'flash'],[1.6,'pop']],[[0.1,'slide'],[0.6,'sizzle']],[[0.3,'spray'],[1.5,'pop']],[[0.3,'sizzle']],[[0.3,'hum'],[1.0,'hum'],[1.8,'pop']],[[1.0,'pop'],[2.3,'chime']],[[0.5,'pop'],[1.05,'pop'],[1.6,'pop'],[2.15,'pop'],[2.7,'success']]];
+function speak(i){try{speechSynthesis.cancel();if(!voice)return;const u=new SpeechSynthesisUtterance(STEPS[i].t+'. '+STEPS[i].l.replace(/[“”]/g,''));u.lang='en-US';u.rate=1;speechSynthesis.speak(u)}catch(e){}}
+// ---------- UI ----------
+const rail=document.getElementById('rail');
+rail.innerHTML=NAMES.map((n,i)=>`<button data-i="${i+1}" aria-label="Step ${i+1}: ${n}"><span class="dot"></span>${n}</button>`).join('');
+rail.addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(+b.dataset.i)});
+const $=id=>document.getElementById(id);
+function go(i){step=cl(i,0,11);t0=performance.now();timers.forEach(clearTimeout);timers=CUES[step].map(([d,s])=>setTimeout(()=>sfx(s),d*1000));
+  const S=STEPS[step];$('cnum').textContent=step===0?'00':step===11?'↻':String(step).padStart(2,'0');$('cphase').textContent=S.ph;$('ctitle').textContent=S.t;$('czh').textContent=S.zh;$('cpy').textContent=S.py;
+  $('cline').textContent=step===7&&neg?'Negative resist: the light-hardened parts stay, everything else washes away. The pattern comes out reversed.':S.l;$('ckey').textContent=S.k[0];$('ckeyl').textContent=S.k[1];
+  $('cwarn').innerHTML=S.w?'<b>If it goes wrong:</b> '+S.w:'';
+  [...rail.children].forEach((b,j)=>{b.className=j+1===step?'on':(j+1<step||step===11)?'done':''});speak(step)}
+function updPlay(){$('play').textContent=playing?'❚❚ Pause':'▶ Play all'}
+$('prev').onclick=()=>go(step-1);$('next').onclick=()=>go(step+1);
+$('play').onclick=()=>{ac();playing=!playing;if(playing&&step===11)go(0);else if(playing)t0=performance.now()-0;updPlay()};
+$('snd').onclick=e=>{sound=!sound;e.currentTarget.setAttribute('aria-pressed',sound)};
+$('voice').onclick=e=>{voice=!voice;e.currentTarget.setAttribute('aria-pressed',voice);speak(step)};
+$('neg').onclick=e=>{neg=!neg;e.currentTarget.setAttribute('aria-pressed',neg);go(step)};
+$('fs').onclick=()=>{const d=document.documentElement;try{document.fullscreenElement?document.exitFullscreen():d.requestFullscreen().catch(()=>{})}catch(e){}};
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='PageDown'){ac();go(step+1)}else if(e.key==='ArrowLeft'||e.key==='PageUp')go(step-1);else if(e.key===' '){e.preventDefault();$('play').click()}else if(e.key==='n'||e.key==='N')$('neg').click();else if(e.key==='f'||e.key==='F')$('fs').click()});
+const h=location.hash.match(/^#step-(\d+)$/);go(h?+h[1]:0);requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,711 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Photolithography Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an instrument console. Sticky top bar with lab tabs, then one lab at a time:
+   stage (canvas) on the left, control panel on the right; stacks on phones.
+   Single committed dark look: the "unexposed" night of a litho bay, amber = light. */
+:root {
+  --night: #15132A; --panel: #1F1C3A; --panel2: #29254A; --line: #3A3566;
+  --ink: #EEEAF8; --muted: #A9A2CC; --violet: #8D82E0; --violet-d: #6F63BC;
+  --amber: #EDB27A; --amber-d: #C98A4E; --gold: #F2C14E; --si: #6B6584; --oxide: #B9B0E0;
+  --good: #59C99A; --bad: #EE7B7B;
+  --display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--night); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--night); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--night) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.bar { display: flex; align-items: center; gap: 16px; padding-block: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: .01em; }
+.brand small { font-family: var(--mono); font-weight: 400; color: var(--muted); font-size: 12px; }
+nav.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+nav.tabs a { color: var(--muted); text-decoration: none; padding: 7px 12px; border-radius: 999px; font-weight: 500; font-size: 14px; display: inline-flex; gap: 7px; align-items: center; border: 1px solid transparent; }
+nav.tabs a:hover { color: var(--ink); border-color: var(--line); }
+nav.tabs a[aria-current="page"] { color: var(--night); background: var(--amber); }
+nav.tabs svg { width: 16px; height: 16px; }
+button.sound { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; font: 500 13px var(--body); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+button.sound svg { width: 16px; height: 16px; }
+main { padding-block: 28px 60px; }
+.lab[hidden] { display: none !important; }
+.lab-head { display: grid; gap: 6px; margin-bottom: 18px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+h1, h2 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+h1 { font-size: clamp(26px, 3.4vw, 38px); }
+h2 { font-size: 20px; }
+.lede { color: var(--muted); max-width: 70ch; margin: 0; }
+.zh { font-family: var(--body); color: var(--violet); font-weight: 500; }
+.grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .grid { grid-template-columns: minmax(0, 1fr); } nav.tabs { margin-left: 0; } }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px; min-width: 0; }
+.stage canvas { width: 100%; height: auto; display: block; border-radius: 12px; background: #110F22; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 16px; min-width: 0; }
+.ctrl { display: grid; gap: 6px; }
+.ctrl label { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; font-size: 14px; }
+.ctrl output { font-family: var(--mono); color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+input[type=range] { width: 100%; accent-color: var(--amber); }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button, .btn { font: 600 14px var(--body); border-radius: 10px; padding: 9px 14px; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.seg button[aria-pressed="true"] { background: var(--violet-d); border-color: var(--violet); }
+.btn.primary { background: var(--amber); color: #2A1B0B; border-color: var(--amber); }
+.btn.primary:hover { background: #F4C391; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn svg, .seg svg { width: 16px; height: 16px; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.steps li button { width: 100%; text-align: left; padding: 8px 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--muted); font: 500 12px var(--body); cursor: pointer; display: grid; gap: 2px; }
+.steps li button b { font-family: var(--mono); color: var(--ink); font-size: 12px; }
+.steps li button.done { border-color: color-mix(in srgb, var(--good) 60%, var(--line)); color: var(--ink); }
+.steps li button.now { background: var(--amber); color: #2A1B0B; border-color: var(--amber); }
+.steps li button.now b { color: #2A1B0B; }
+@media (max-width: 560px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.card { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 6px; }
+.card h3 { margin: 0; font: 700 17px var(--display); display: flex; gap: 10px; align-items: center; }
+.card h3 .ico { width: 32px; height: 32px; border-radius: 50%; background: var(--violet-d); display: grid; place-items: center; flex: none; }
+.card h3 .ico svg { width: 17px; height: 17px; color: #fff; }
+.card p { margin: 0; }
+.why { color: var(--muted); font-size: 14px; }
+.readouts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ro { background: #13112A; border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 2px; }
+.ro span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.ro b { font: 600 18px var(--mono); font-variant-numeric: tabular-nums; }
+.ro b.ok { color: var(--good); } .ro b.warn { color: var(--gold); } .ro b.bad { color: var(--bad); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--panel2); border: 1px solid var(--line); color: var(--ink); padding: 10px 16px; border-radius: 12px; opacity: 0; transition: .25s; pointer-events: none; font-weight: 500; max-width: calc(100vw - 32px); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.quiz { display: grid; gap: 14px; max-width: 760px; }
+.q { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; display: grid; gap: 10px; }
+.q p { margin: 0; font-weight: 600; }
+.q .opts { display: grid; gap: 8px; }
+.q .opts button { text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); color: var(--ink); font: 500 14px var(--body); cursor: pointer; }
+.q .opts button.right { border-color: var(--good); background: color-mix(in srgb, var(--good) 22%, var(--panel2)); }
+.q .opts button.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 18%, var(--panel2)); }
+.q .fb { color: var(--muted); font-size: 14px; margin: 0; }
+.score { font: 700 20px var(--display); }
+footer { color: var(--muted); font-size: 13px; padding-block: 24px; border-top: 1px solid var(--line); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1" fill="currentColor"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></g></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 12c2.5-6 5-6 7.5 0s5 6 7.5 0 3.5-4 5-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 8v3M10 8v4M14 8v3M18 8v4"/></g></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke-linecap="round"/></g></symbol>
+  <symbol id="i-quiz" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 1 1 3.9 2.6c-.8.4-1.2 1-1.2 1.9v.6"/><circle cx="12" cy="17.2" r=".6" fill="currentColor"/></g></symbol>
+  <symbol id="i-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></g></symbol>
+  <symbol id="i-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/></g></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></g></symbol>
+  <symbol id="i-clean" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3c3 4 5 6.5 5 9.5a5 5 0 0 1-10 0C7 9.5 9 7 12 3z"/></g></symbol>
+  <symbol id="i-spin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><ellipse cx="12" cy="14" rx="9" ry="3.5"/><path d="M12 3v7M8 6l4 4 4-4"/></g></symbol>
+  <symbol id="i-heat" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 20c-2-3 2-5 0-8M12 20c-2-3 2-5 0-8M17 20c-2-3 2-5 0-8"/><path d="M4 6h16"/></g></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7.5 15h9"/></g></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></g></symbol>
+  <symbol id="i-eraser" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M15 4l5 5-9 9H6l-3-3z"/><path d="M10 9l5 5M6 18h14"/></g></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap bar">
+    <div class="brand"><svg width="26" height="26" aria-hidden="true" style="color:var(--amber)"><use href="#i-chip"/></svg>Photolithography Lab <small>微影實驗室</small></div>
+    <nav class="tabs" aria-label="Labs">
+      <a href="#process"><svg aria-hidden="true"><use href="#i-layers"/></svg>Process</a>
+      <a href="#light"><svg aria-hidden="true"><use href="#i-wave"/></svg>Light</a>
+      <a href="#resolution"><svg aria-hidden="true"><use href="#i-ruler"/></svg>Resolution</a>
+      <a href="#overlay"><svg aria-hidden="true"><use href="#i-target"/></svg>Alignment</a>
+      <a href="#quiz"><svg aria-hidden="true"><use href="#i-quiz"/></svg>Quiz</a>
+    </nav>
+    <button class="sound" id="soundBtn" aria-pressed="true"><svg aria-hidden="true"><use href="#i-on"/></svg><span>Sound on</span></button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- ============ PROCESS ============ -->
+  <section class="lab" id="lab-process">
+    <div class="lab-head">
+      <span class="eyebrow">Lab 1 · The ten-step recipe</span>
+      <h1>Build one chip layer, step by step</h1>
+      <p class="lede">You are looking at a slice through a silicon wafer, like a cake cut in half. Run each step and watch how light turns a flat coating into a carved pattern. Change the settings to see what goes wrong in a real fab.</p>
+    </div>
+    <div class="grid">
+      <div class="stage">
+        <canvas id="pc" width="1100" height="560" aria-label="Cross-section of the wafer during the current process step"></canvas>
+        <div class="legend"><span><i style="background:var(--si)"></i>Silicon</span><span><i style="background:var(--oxide)"></i>Layer to carve (oxide)</span><span><i style="background:var(--amber)"></i>Photoresist</span><span><i style="background:#2D2840;border:1px solid var(--line)"></i>Mask</span><span><i style="background:var(--gold)"></i>UV light</span></div>
+        <ol class="steps" id="steps" style="margin-top:14px"></ol>
+      </div>
+      <div class="panel">
+        <div class="card" id="stepCard" aria-live="polite"></div>
+        <div class="row">
+          <button class="btn primary" id="runStep"><svg aria-hidden="true"><use href="#i-play"/></svg><span>Run step</span></button>
+          <button class="btn" id="autoRun"><svg aria-hidden="true"><use href="#i-play"/></svg>Run all</button>
+          <button class="btn" id="resetProc"><svg aria-hidden="true"><use href="#i-reset"/></svg>Start over</button>
+        </div>
+        <div class="ctrl">
+          <label for="resist">Resist type</label>
+          <div class="seg" id="resist" role="group" aria-label="Resist type">
+            <button data-v="pos" aria-pressed="true">Positive 正光阻</button>
+            <button data-v="neg" aria-pressed="false">Negative 負光阻</button>
+          </div>
+          <p class="hint">Positive: light erases. Negative: light glues.</p>
+        </div>
+        <div class="ctrl">
+          <label for="mask">Mask pattern</label>
+          <div class="seg" id="mask" role="group" aria-label="Mask pattern">
+            <button data-v="lines" aria-pressed="true">Lines</button>
+            <button data-v="wide" aria-pressed="false">One trench</button>
+            <button data-v="dense" aria-pressed="false">Dense lines</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <label for="rpm">Spin speed <output id="rpmOut">3000 rpm</output></label>
+          <input type="range" id="rpm" min="1000" max="6000" step="100" value="3000">
+          <p class="hint">Faster spin, thinner film. Thickness ≈ 1.0 µm × √(3000 / rpm).</p>
+        </div>
+        <div class="ctrl">
+          <label for="dose">Exposure dose <output id="doseOut">100%</output></label>
+          <input type="range" id="dose" min="40" max="180" step="5" value="100">
+          <p class="hint">Too little light leaves scum in the openings. Too much light makes them grow too wide.</p>
+        </div>
+        <div class="readouts">
+          <div class="ro"><span>Film</span><b id="roThick">1.00 µm</b></div>
+          <div class="ro"><span>Line width</span><b id="roCD">–</b></div>
+          <div class="ro"><span>Verdict</span><b id="roVerdict">–</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ LIGHT ============ -->
+  <section class="lab" id="lab-light" hidden>
+    <div class="lab-head">
+      <span class="eyebrow">Lab 2 · Diffraction 繞射</span>
+      <h1>Why do chipmakers need shorter light?</h1>
+      <p class="lede">Light is a wave. When it squeezes through an opening about as small as its own wavelength, it fans out and the print turns blurry. Shrink the wavelength and watch the spot on the right become sharp again.</p>
+    </div>
+    <div class="grid">
+      <div class="stage">
+        <canvas id="lc" width="1100" height="560" aria-label="Animated light waves passing through a slit and the intensity on a screen"></canvas>
+      </div>
+      <div class="panel">
+        <div class="ctrl">
+          <label>Light source</label>
+          <div class="seg" id="lightPreset" role="group" aria-label="Light source">
+            <button data-l="436" aria-pressed="false">g-line 436</button>
+            <button data-l="365" aria-pressed="false">i-line 365</button>
+            <button data-l="193" aria-pressed="true">ArF 193</button>
+            <button data-l="13.5" aria-pressed="false">EUV 13.5</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <label for="lam">Wavelength λ <output id="lamOut">193 nm</output></label>
+          <input type="range" id="lam" min="10" max="450" step="0.5" value="193">
+        </div>
+        <div class="ctrl">
+          <label for="slit">Opening on the mask <output id="slitOut">200 nm</output></label>
+          <input type="range" id="slit" min="20" max="600" step="5" value="200">
+          <p class="hint">On a real mask the openings are drawn 4× bigger, then the lens shrinks them.</p>
+        </div>
+        <div class="readouts">
+          <div class="ro"><span>Opening ÷ λ</span><b id="ratioOut">1.04</b></div>
+          <div class="ro"><span>Spot spread</span><b id="spreadOut">–</b></div>
+          <div class="ro"><span>Print</span><b id="printOut">–</b></div>
+        </div>
+        <div class="card"><h3><span class="ico"><svg aria-hidden="true"><use href="#i-wave"/></svg></span>Think of a marker</h3><p class="why">Writing tiny letters with a fat marker gives blobs. The wavelength is the size of the marker tip. EUV light is a tip about 14 times finer than ArF.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESOLUTION ============ -->
+  <section class="lab" id="lab-resolution" hidden>
+    <div class="lab-head">
+      <span class="eyebrow">Lab 3 · The Rayleigh equation</span>
+      <h1>How small can this machine print?</h1>
+      <p class="lede">Three knobs decide the smallest line: the wavelength λ, the lens opening NA, and the process factor k₁. Turn them and see if the machine can still print the pattern you want.</p>
+    </div>
+    <div class="grid">
+      <div class="stage">
+        <canvas id="rc" width="1100" height="560" aria-label="Line pattern printed at the chosen settings"></canvas>
+      </div>
+      <div class="panel">
+        <div class="ctrl"><label>Machine</label>
+          <div class="seg" id="machine" role="group" aria-label="Machine preset">
+            <button data-p="365,0.62,0.6">i-line 1990s</button>
+            <button data-p="248,0.8,0.45">KrF</button>
+            <button data-p="193,1.35,0.3" aria-pressed="true">ArF immersion</button>
+            <button data-p="13.5,0.33,0.32">EUV</button>
+            <button data-p="13.5,0.55,0.32">High-NA EUV</button>
+          </div>
+        </div>
+        <div class="ctrl"><label for="rl">Wavelength λ <output id="rlOut"></output></label><input type="range" id="rl" min="10" max="450" step="0.5" value="193"></div>
+        <div class="ctrl"><label for="rna">Numerical aperture NA <output id="rnaOut"></output></label><input type="range" id="rna" min="0.2" max="1.4" step="0.01" value="1.35"><p class="hint">Above 1.0 is only possible with water between lens and wafer (immersion).</p></div>
+        <div class="ctrl"><label for="rk">Process factor k₁ <output id="rkOut"></output></label><input type="range" id="rk" min="0.25" max="0.8" step="0.01" value="0.3"><p class="hint">0.25 is the physical floor for one exposure.</p></div>
+        <div class="ctrl"><label for="tp">Pattern you want (half-pitch) <output id="tpOut"></output></label><input type="range" id="tp" min="5" max="200" step="1" value="40"></div>
+        <div class="readouts">
+          <div class="ro"><span>Smallest line R</span><b id="rOut">–</b></div>
+          <div class="ro"><span>Depth of focus</span><b id="dofOut">–</b></div>
+          <div class="ro"><span>Result</span><b id="resOut">–</b></div>
+        </div>
+        <p class="hint" style="font-family:var(--mono)">R = k₁ · λ / NA &nbsp;·&nbsp; DOF ≈ 0.5 · λ / NA²</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ OVERLAY ============ -->
+  <section class="lab" id="lab-overlay" hidden>
+    <div class="lab-head">
+      <span class="eyebrow">Lab 4 · Overlay 疊對</span>
+      <h1>Line up the next layer within 2 nm</h1>
+      <p class="lede">Every new layer must land on top of the one below. You are the wafer stage. Nudge the amber box into the centre of the violet frame, then press Expose. A real scanner does this in milliseconds, about a hundred times per wafer.</p>
+    </div>
+    <div class="grid">
+      <div class="stage">
+        <canvas id="oc" width="1100" height="560" tabindex="0" aria-label="Alignment mark. Use arrow keys to move the amber box; hold Shift for fine steps."></canvas>
+      </div>
+      <div class="panel">
+        <div class="readouts">
+          <div class="ro"><span>Offset X</span><b id="oxOut">–</b></div>
+          <div class="ro"><span>Offset Y</span><b id="oyOut">–</b></div>
+          <div class="ro"><span>Best score</span><b id="bestOut">–</b></div>
+        </div>
+        <div class="ctrl"><label>Move the stage</label>
+          <div class="row" role="group" aria-label="Stage nudges">
+            <button class="btn" data-dx="-10" data-dy="0">← 10 nm</button><button class="btn" data-dx="10" data-dy="0">10 nm →</button>
+            <button class="btn" data-dx="0" data-dy="-10">↑ 10 nm</button><button class="btn" data-dx="0" data-dy="10">↓ 10 nm</button>
+          </div>
+          <div class="row" role="group" aria-label="Fine stage nudges">
+            <button class="btn" data-dx="-1" data-dy="0">← 1</button><button class="btn" data-dx="1" data-dy="0">1 →</button>
+            <button class="btn" data-dx="0" data-dy="-1">↑ 1</button><button class="btn" data-dx="0" data-dy="1">↓ 1</button>
+          </div>
+          <p class="hint">Keyboard: click the picture, then arrow keys move 10 nm; hold Shift for 1 nm. You can also drag.</p>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="exposeO"><svg aria-hidden="true"><use href="#i-sun"/></svg>Expose</button>
+          <button class="btn" id="newO"><svg aria-hidden="true"><use href="#i-reset"/></svg>New wafer</button>
+        </div>
+        <div class="card"><h3><span class="ico"><svg aria-hidden="true"><use href="#i-target"/></svg></span>Why it matters</h3><p class="why">Modern EUV scanners match layers to about 1 to 1.5 nm, only a few atoms. Miss by more and the wires of one floor do not touch the posts of the next, so the chip fails.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="lab" id="lab-quiz" hidden>
+    <div class="lab-head">
+      <span class="eyebrow">Check yourself</span>
+      <h1>Six questions, one minute</h1>
+      <p class="lede">Pick an answer to see the explanation.</p>
+    </div>
+    <div class="quiz" id="quizBox"></div>
+    <p class="score" id="quizScore" aria-live="polite"></p>
+  </section>
+</main>
+
+<footer class="wrap">Teaching module for the Semiconductor Processing midterm · Simplified models for learning: the shapes are qualitative, the equations and wavelengths are real.</footer>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const COL = { si: "#6B6584", oxide: "#B9B0E0", amber: "#EDB27A", amberD: "#C98A4E", mask: "#2D2840", gold: "#F2C14E", violet: "#8D82E0", night: "#110F22", good: "#59C99A", bad: "#EE7B7B", ink: "#EEEAF8", muted: "#A9A2CC", line: "#3A3566" };
+
+/* ---------------- sound (WebAudio, synthesized) ---------------- */
+let actx = null, soundOn = true;
+try { soundOn = localStorage.getItem("litho-sound") !== "off"; } catch (e) {}
+function ac() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } } if (actx.state === "suspended") actx.resume(); return actx; }
+function tone(freq, dur, type = "sine", vol = 0.15, slide = 0, delay = 0) {
+  if (!soundOn) return; const a = ac(); if (!a) return;
+  const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+function noise(dur, vol = 0.12, freq = 1200, q = 0.7, delay = 0) {
+  if (!soundOn) return; const a = ac(); if (!a) return;
+  const t = a.currentTime + delay, n = Math.floor(a.sampleRate * dur), b = a.createBuffer(1, n, a.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / n);
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q; g.gain.value = vol;
+  s.buffer = b; s.connect(f).connect(g).connect(a.destination); s.start(t);
+}
+const SFX = {
+  click: () => tone(1500, 0.05, "square", 0.04),
+  tick: () => tone(2400, 0.03, "square", 0.03),
+  whoosh: () => noise(0.45, 0.18, 900, 0.6),
+  spin: () => { tone(220, 1.0, "sawtooth", 0.05, 900); noise(1.0, 0.05, 2500, 1.5); },
+  heat: () => { noise(0.9, 0.08, 500, 0.4); tone(110, 0.9, "sine", 0.06); },
+  flash: () => { noise(0.08, 0.3, 4000, 0.5); tone(1800, 0.35, "triangle", 0.12, -1300, 0.03); },
+  drip: () => { tone(900, 0.12, "sine", 0.12, -500); tone(700, 0.12, "sine", 0.08, -400, 0.15); },
+  etch: () => { noise(1.0, 0.1, 3000, 2); tone(60, 1.0, "sawtooth", 0.04); },
+  success: () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.35, "sine", 0.12, 0, i * 0.09)),
+  fail: () => { tone(220, 0.25, "square", 0.06, -60); tone(165, 0.35, "square", 0.06, -40, 0.18); },
+  nudge: () => tone(880, 0.04, "sine", 0.05),
+};
+const soundBtn = $("#soundBtn");
+function paintSound() { soundBtn.setAttribute("aria-pressed", String(soundOn)); soundBtn.querySelector("use").setAttribute("href", soundOn ? "#i-on" : "#i-off"); soundBtn.querySelector("span").textContent = soundOn ? "Sound on" : "Sound off"; }
+soundBtn.addEventListener("click", () => { soundOn = !soundOn; try { localStorage.setItem("litho-sound", soundOn ? "on" : "off"); } catch (e) {} paintSound(); if (soundOn) SFX.click(); });
+paintSound();
+let toastT; function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2200); }
+
+/* ---------------- routing ---------------- */
+const LABS = ["process", "light", "resolution", "overlay", "quiz"];
+function route() {
+  const h = (location.hash || "#process").slice(1); const cur = LABS.includes(h) ? h : "process";
+  LABS.forEach((l) => { $("#lab-" + l).hidden = l !== cur; });
+  $$("nav.tabs a").forEach((a) => a.setAttribute("aria-current", a.getAttribute("href") === "#" + cur ? "page" : "false"));
+  if (cur === "light") startLight(); else stopLight();
+  if (cur === "resolution") drawRes();
+  if (cur === "overlay") drawOverlay();
+}
+addEventListener("hashchange", () => { SFX.whoosh(); route(); });
+
+function seg(id, onPick) {
+  $$("#" + id + " button").forEach((b) => b.addEventListener("click", () => {
+    $$("#" + id + " button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); SFX.click(); onPick(b);
+  }));
+}
+const easeInOut = (t) => t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+function animate(dur, fn, done) { if (reduce) { fn(1); done && done(); return; } const t0 = performance.now(); const f = (now) => { const t = Math.min(1, (now - t0) / dur); fn(easeInOut(t)); if (t < 1) requestAnimationFrame(f); else done && done(); }; requestAnimationFrame(f); }
+function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
+
+/* ================= LAB 1: PROCESS ================= */
+const STEPS = [
+  { k: "clean", n: "Clean", zh: "晶圓清洗 jīngyuán qīngxǐ", ic: "#i-clean", what: "Chemicals and pure water wash away dust, oils and metal traces.", why: "A single speck the size of a virus can block light and kill a chip.", sfx: "whoosh", dur: 1300 },
+  { k: "prime", n: "Dehydrate + prime", zh: "脫水烘烤 · HMDS", ic: "#i-heat", what: "The wafer is baked dry, then coated with a few molecules of HMDS.", why: "HMDS acts like a primer coat on a wall, so the resist sticks instead of peeling.", sfx: "heat", dur: 1200 },
+  { k: "spin", n: "Spin coat", zh: "旋轉塗佈 xuánzhuǎn túbù", ic: "#i-spin", what: "A drop of liquid resist lands in the centre and the wafer spins at thousands of rpm.", why: "Spinning flings the extra liquid off and leaves a film thinner than a soap bubble, perfectly even.", sfx: "spin", dur: 1700 },
+  { k: "soft", n: "Soft bake", zh: "軟烤 ruǎnkǎo", ic: "#i-heat", what: "About 90–100 °C for a minute drives the solvent out.", why: "Wet resist would smear. Baking firms it up, like letting paint dry.", sfx: "heat", dur: 1200 },
+  { k: "align", n: "Align", zh: "對準 duìzhǔn", ic: "#i-target", what: "The scanner moves the mask until it lines up with marks on the layer below.", why: "Every layer must sit exactly on the last one, within a few atoms.", sfx: "tick", dur: 1300 },
+  { k: "expose", n: "Expose", zh: "曝光 pùguāng", ic: "#i-sun", what: "UV light shines through the mask. Only the open areas let light reach the resist.", why: "This is the actual photograph. The light chemically changes the resist where it lands.", sfx: "flash", dur: 1500 },
+  { k: "peb", n: "Post-exposure bake", zh: "曝後烤 pùhòukǎo", ic: "#i-heat", what: "A short bake lets the light-made acid spread a tiny bit and finish the reaction.", why: "In modern resists one photon makes one acid, and that acid then triggers many reactions.", sfx: "heat", dur: 1100 },
+  { k: "develop", n: "Develop", zh: "顯影 xiǎnyǐng", ic: "#i-flask", what: "A developer liquid washes away the soluble resist.", why: "Now the hidden picture appears as real openings in the resist.", sfx: "drip", dur: 1600 },
+  { k: "etch", n: "Etch", zh: "蝕刻 shíkè", ic: "#i-layers", what: "Plasma or chemicals cut into the layer, but only where resist is gone.", why: "The resist works like masking tape. The pattern moves from the soft resist into the hard layer.", sfx: "etch", dur: 1600 },
+  { k: "strip", n: "Strip", zh: "去光阻 qù guāngzǔ", ic: "#i-eraser", what: "The leftover resist is removed.", why: "One layer done. A real chip repeats this loop dozens of times.", sfx: "success", dur: 1200 },
+];
+const P = { step: 0, resist: "pos", mask: "lines", rpm: 3000, dose: 100, busy: false, anim: {} };
+const pc = $("#pc"), px = pc.getContext("2d");
+const N = 220; // columns across the slice
+const X0 = 60, X1 = 1040, colW = (X1 - X0) / N;
+const Y_SI = 430, OX_H = 34;
+let S = null; // state arrays
+function maskOpen(i) {
+  const u = i / N;
+  if (P.mask === "lines") return [0.18, 0.43, 0.68].some((a) => u > a && u < a + 0.12);
+  if (P.mask === "wide") return u > 0.36 && u < 0.64;
+  return [0.12, 0.27, 0.42, 0.57, 0.72].some((a) => u > a && u < a + 0.075);
+}
+function aerial() { // blurred mask transmission (Gaussian), the optics of the lens
+  const t = Array.from({ length: N }, (_, i) => maskOpen(i) ? 1 : 0), sig = 3.2, out = [];
+  for (let i = 0; i < N; i++) { let s = 0, w = 0; for (let j = -12; j <= 12; j++) { const k = i + j; if (k < 0 || k >= N) continue; const g = Math.exp(-(j * j) / (2 * sig * sig)); s += t[k] * g; w += g; } out.push(s / w); }
+  return out;
+}
+function thick() { return 1.0 * Math.sqrt(3000 / P.rpm); }
+function resetSlice() {
+  S = { particles: Array.from({ length: 14 }, () => ({ x: X0 + Math.random() * (X1 - X0), y: Y_SI - OX_H - 6 - Math.random() * 30, r: 3 + Math.random() * 5 })),
+    clean: 0, prime: 0, resist: new Array(N).fill(0), wet: 0, maskX: -300, light: 0, exposed: new Array(N).fill(0), peb: 0,
+    ox: new Array(N).fill(1), heat: 0, spinA: 0, drop: 0, solubleFrac: 0 };
+  P.step = 0; P.busy = false;
+  $("#roCD").textContent = "–"; $("#roVerdict").textContent = "–"; $("#roVerdict").className = "";
+  renderSteps(); stepCard(); drawProc();
+}
+function renderSteps() {
+  $("#steps").innerHTML = STEPS.map((s, i) => `<li><button data-i="${i}" class="${i < P.step ? "done" : i === P.step ? "now" : ""}" aria-label="Step ${i + 1}: ${s.n}"><b>${String(i + 1).padStart(2, "0")}</b>${s.n}</button></li>`).join("");
+  $$("#steps button").forEach((b) => b.addEventListener("click", () => { const i = +b.dataset.i; if (i === P.step) runStep(); else if (i < P.step) toast("Already done. Use Start over to repeat."); else toast("Do step " + (P.step + 1) + " first. Order matters in a fab."); }));
+}
+function stepCard() {
+  const s = STEPS[Math.min(P.step, STEPS.length - 1)];
+  const done = P.step >= STEPS.length;
+  $("#stepCard").innerHTML = done
+    ? `<h3><span class="ico" style="background:var(--good)"><svg aria-hidden="true"><use href="#i-layers"/></svg></span>Layer finished</h3><p>The pattern is now carved into the oxide. Change the dose or the resist type and start over to compare.</p>`
+    : `<h3><span class="ico"><svg aria-hidden="true"><use href="${s.ic}"/></svg></span>${String(P.step + 1).padStart(2, "0")} · ${s.n}</h3><p class="zh">${s.zh}</p><p>${s.what}</p><p class="why">${s.why}</p>`;
+  $("#runStep").disabled = done || P.busy; $("#autoRun").disabled = done || P.busy;
+}
+function drawProc() {
+  const c = px, W = pc.width, H = pc.height;
+  c.clearRect(0, 0, W, H);
+  // background grid
+  c.fillStyle = COL.night; c.fillRect(0, 0, W, H);
+  c.strokeStyle = "rgba(141,130,224,0.07)"; c.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+  for (let y = 0; y < H; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+  // heat glow
+  if (S.heat > 0) { const g = c.createLinearGradient(0, Y_SI + 120, 0, Y_SI - 80); g.addColorStop(0, `rgba(237,120,80,${0.55 * S.heat})`); g.addColorStop(1, "rgba(237,120,80,0)"); c.fillStyle = g; c.fillRect(X0 - 20, Y_SI - 80, X1 - X0 + 40, 220); }
+  // silicon
+  const gs = c.createLinearGradient(0, Y_SI, 0, H); gs.addColorStop(0, "#6B6584"); gs.addColorStop(1, "#45405E"); c.fillStyle = gs; c.fillRect(X0, Y_SI, X1 - X0, H - Y_SI - 30);
+  // oxide
+  c.fillStyle = COL.oxide;
+  for (let i = 0; i < N; i++) { const h = OX_H * S.ox[i]; c.fillRect(X0 + i * colW, Y_SI - h, colW + 0.6, h); }
+  // HMDS sheen
+  if (S.prime > 0) { c.fillStyle = `rgba(242,193,78,${0.6 * S.prime})`; c.fillRect(X0, Y_SI - OX_H - 3, X1 - X0, 3); }
+  // resist
+  const tPx = 70 * thick();
+  for (let i = 0; i < N; i++) {
+    const h = S.resist[i] * tPx; if (h <= 0.2) continue;
+    const ex = S.exposed[i];
+    let col = COL.amber;
+    if (ex > 0.02) { const k = Math.min(1, ex); col = P.resist === "pos" ? mixc("#EDB27A", "#FFF1D2", k) : mixc("#EDB27A", "#B8743A", k); }
+    c.fillStyle = col; c.fillRect(X0 + i * colW, Y_SI - OX_H - h, colW + 0.6, h);
+  }
+  if (S.wet > 0) { c.fillStyle = `rgba(255,255,255,${0.18 * S.wet})`; for (let i = 0; i < N; i++) { const h = S.resist[i] * tPx; if (h > 1) c.fillRect(X0 + i * colW, Y_SI - OX_H - h, colW + 0.6, 3); } }
+  // particles
+  S.particles.forEach((p) => { if (p.gone >= 1) return; c.globalAlpha = 1 - (p.gone || 0); c.fillStyle = "#C9C2B0"; c.beginPath(); c.arc(p.x + (p.gone || 0) * 400, p.y - (p.gone || 0) * 120, p.r, 0, 7); c.fill(); c.globalAlpha = 1; });
+  // spin: droplet + rotation cue
+  if (S.drop > 0 && S.drop < 1) { const y = 60 + S.drop * (Y_SI - OX_H - 80); c.fillStyle = COL.amber; c.beginPath(); c.ellipse(550, y, 12, 18, 0, 0, 7); c.fill(); }
+  if (S.spinA > 0) { c.strokeStyle = COL.violet; c.lineWidth = 5; c.beginPath(); c.ellipse(550, Y_SI + 70, 380, 26, 0, Math.PI * 0.1 + S.spinA, Math.PI * 0.9 + S.spinA); c.stroke(); }
+  // mask + light
+  if (S.maskX > -290) {
+    const my = 150;
+    for (let i = 0; i < N; i++) if (!maskOpen(i)) { c.fillStyle = COL.mask; c.fillRect(S.maskX + X0 + i * colW, my, colW + 0.6, 22); }
+    c.strokeStyle = COL.line; c.strokeRect(S.maskX + X0, my, X1 - X0, 22);
+    // alignment marks
+    c.strokeStyle = COL.gold; c.lineWidth = 3; [X0 - 30, X1 + 30].forEach((x) => { c.beginPath(); c.moveTo(S.maskX + x - 12, my + 11); c.lineTo(S.maskX + x + 12, my + 11); c.moveTo(S.maskX + x, my - 1); c.lineTo(S.maskX + x, my + 23); c.stroke(); });
+    c.strokeStyle = COL.violet; [X0 - 30, X1 + 30].forEach((x) => { c.strokeRect(x - 14, Y_SI - 20, 28, 28); });
+    c.fillStyle = COL.muted; c.font = "500 15px IBM Plex Sans, sans-serif"; c.fillText("MASK", S.maskX + X0, my - 10);
+  }
+  if (S.light > 0) {
+    const g = c.createLinearGradient(0, 40, 0, 150); g.addColorStop(0, `rgba(242,193,78,${0.85 * S.light})`); g.addColorStop(1, `rgba(242,193,78,${0.35 * S.light})`);
+    c.fillStyle = g; c.fillRect(X0, 40, X1 - X0, 110);
+    const ar = aerial();
+    for (let i = 0; i < N; i++) { const a = ar[i] * S.light; if (a < 0.02) continue; c.fillStyle = `rgba(242,193,78,${0.55 * a})`; c.fillRect(X0 + i * colW, 172, colW + 0.6, Y_SI - OX_H - 172 - 70 * thick() * 0.0); }
+    c.fillStyle = "#2A1B0B"; c.font = "700 16px Sora, sans-serif"; c.fillText("UV LIGHT", X0 + 12, 70);
+  }
+  // labels
+  c.fillStyle = COL.muted; c.font = "500 15px IBM Plex Sans, sans-serif";
+  c.fillText("silicon wafer", X0 + 10, Y_SI + 30);
+  c.fillText("oxide layer", X1 - 95, Y_SI - OX_H - 8 - (S.resist[N - 1] * 70 * thick()));
+  // step title watermark
+  c.fillStyle = "rgba(238,234,248,0.9)"; c.font = "700 22px Sora, sans-serif";
+  const s = STEPS[Math.min(P.step, STEPS.length - 1)];
+  c.fillText(P.step >= STEPS.length ? "Finished layer" : `${String(P.step + 1).padStart(2, "0")}  ${s.n}`, X0, 30);
+}
+function mixc(a, b, t) { const A = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16)), B = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16)); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",")})`; }
+
+function runStep(next) {
+  if (P.busy || P.step >= STEPS.length) return;
+  const s = STEPS[P.step]; P.busy = true; stepCard(); SFX[s.sfx] && SFX[s.sfx]();
+  const fin = () => { P.step++; P.busy = false; renderSteps(); stepCard(); drawProc(); if (P.step >= STEPS.length) finishLayer(); if (next && P.step < STEPS.length) setTimeout(() => runStep(true), 350); };
+  const T = s.dur;
+  switch (s.k) {
+    case "clean": S.particles.forEach((p, i) => p.gone = 0); animate(T, (t) => { S.particles.forEach((p, i) => p.gone = Math.min(1, Math.max(0, t * 1.6 - i * 0.04))); drawProc(); }, fin); break;
+    case "prime": animate(T, (t) => { S.heat = Math.sin(Math.PI * t); S.prime = t; drawProc(); }, () => { S.heat = 0; fin(); }); break;
+    case "spin": animate(T, (t) => { S.drop = Math.min(1, t * 2.2); const k = Math.max(0, (t - 0.4) / 0.6); S.spinA = t * 14; for (let i = 0; i < N; i++) { const d = Math.abs(i - N / 2) / (N / 2); S.resist[i] = Math.max(S.resist[i], Math.min(1, k * 1.4 - d * (1 - k) * 1.2)); } S.wet = 1; drawProc(); }, () => { S.spinA = 0; S.drop = 0; S.resist.fill(1); fin(); }); break;
+    case "soft": animate(T, (t) => { S.heat = Math.sin(Math.PI * t); S.wet = 1 - t; drawProc(); }, () => { S.heat = 0; S.wet = 0; fin(); }); break;
+    case "align": { const off = 0; S.maskX = -260; animate(T, (t) => { S.maskX = -260 + 260 * t + Math.sin(t * 18) * 14 * (1 - t); if (Math.random() < 0.12) SFX.tick(); drawProc(); }, () => { S.maskX = off; fin(); }); break; }
+    case "expose": { const ar = aerial(), k = P.dose / 100; animate(T, (t) => { S.light = t < 0.15 ? t / 0.15 : t > 0.85 ? (1 - t) / 0.15 : 1; for (let i = 0; i < N; i++) S.exposed[i] = Math.min(1.2, ar[i] * k * t); drawProc(); }, () => { S.light = 0; fin(); }); break; }
+    case "peb": animate(T, (t) => { S.heat = Math.sin(Math.PI * t); drawProc(); }, () => { S.heat = 0; fin(); }); break;
+    case "develop": {
+      const thr = 0.5; // dose needed to switch solubility
+      const sol = S.exposed.map((e) => P.resist === "pos" ? e >= thr : e < thr);
+      const partial = S.exposed.map((e) => P.resist === "pos" ? Math.max(0, Math.min(1, (e - thr * 0.6) / (thr * 0.4))) : 1);
+      const start = S.resist.slice();
+      animate(T, (t) => { for (let i = 0; i < N; i++) if (sol[i]) S.resist[i] = Math.max(0, start[i] * (1 - t)); else if (P.resist === "pos" && partial[i] > 0 && partial[i] < 1) S.resist[i] = start[i] * (1 - 0.15 * t * partial[i]); S.wet = Math.sin(Math.PI * t); drawProc(); }, () => { S.wet = 0; for (let i = 0; i < N; i++) if (sol[i]) S.resist[i] = 0; S.exposed = S.exposed.map((e, i) => S.resist[i] > 0 ? Math.min(e, 0.4) : 0); fin(); });
+      break;
+    }
+    case "etch": animate(T, (t) => { for (let i = 0; i < N; i++) if (S.resist[i] < 0.05) S.ox[i] = Math.max(0, 1 - t * 1.05); drawProc(); }, fin); break;
+    case "strip": { const st = S.resist.slice(); animate(T, (t) => { for (let i = 0; i < N; i++) S.resist[i] = st[i] * (1 - t); drawProc(); }, () => { S.resist.fill(0); S.exposed.fill(0); fin(); }); break; }
+  }
+}
+function finishLayer() {
+  // measure printed opening widths versus mask opening widths
+  const runs = (arr) => { const r = []; let s = -1; arr.forEach((v, i) => { if (v && s < 0) s = i; if ((!v || i === arr.length - 1) && s >= 0) { r.push((v ? i + 1 : i) - s); s = -1; } }); return r; };
+  const target = runs(Array.from({ length: N }, (_, i) => P.resist === "pos" ? maskOpen(i) : !maskOpen(i)).map(Boolean));
+  const printed = runs(S.ox.map((o) => o < 0.5));
+  const nmPerCol = 4; // scale: one column = 4 nm on the wafer
+  const tW = target.length ? Math.round(target.slice(P.resist === "pos" ? 0 : 1, P.resist === "pos" ? 1 : 2)[0] * nmPerCol) : 0;
+  const pW = printed.length ? Math.round(printed[P.resist === "pos" ? 0 : Math.min(1, printed.length - 1)] * nmPerCol) : 0;
+  const cnt = printed.length, want = target.length;
+  let verdict = "Good", cls = "ok";
+  if (cnt === 0) { verdict = "Nothing"; cls = "bad"; }
+  else if (cnt < want) { verdict = "Merged"; cls = "bad"; }
+  else if (cnt > want + 1) { verdict = "Broken"; cls = "bad"; }
+  else if (Math.abs(pW - tW) > tW * 0.2) { verdict = pW > tW ? "Too wide" : "Too narrow"; cls = "warn"; }
+  $("#roCD").textContent = pW ? pW + " nm" : "–";
+  $("#roVerdict").textContent = verdict; $("#roVerdict").className = cls;
+  if (cls === "ok") { toast("Clean print. Target " + tW + " nm, got " + pW + " nm."); }
+  else { SFX.fail(); toast(cls === "warn" ? `Printed ${pW} nm instead of ${tW} nm. Adjust the dose.` : P.dose < 100 ? "Underexposed: resist stayed in the openings." : "Overexposed: openings grew into each other."); }
+}
+$("#runStep").addEventListener("click", () => runStep(false));
+$("#autoRun").addEventListener("click", () => runStep(true));
+$("#resetProc").addEventListener("click", () => { SFX.click(); resetSlice(); });
+seg("resist", (b) => { P.resist = b.dataset.v; resetSlice(); });
+seg("mask", (b) => { P.mask = b.dataset.v; resetSlice(); });
+$("#rpm").addEventListener("input", (e) => { P.rpm = +e.target.value; $("#rpmOut").textContent = P.rpm + " rpm"; $("#roThick").textContent = thick().toFixed(2) + " µm"; drawProc(); });
+$("#dose").addEventListener("input", (e) => { P.dose = +e.target.value; $("#doseOut").textContent = P.dose + "%"; });
+
+/* ================= LAB 2: LIGHT ================= */
+const lc = $("#lc"), lx = lc.getContext("2d");
+const L = { lam: 193, slit: 200, raf: 0, t: 0 };
+const GW = 220, GH = 112; // simulation grid
+const img = lx.createImageData(GW, GH);
+const off = document.createElement("canvas"); off.width = GW; off.height = GH; const ox = off.getContext("2d");
+function lightFrame() {
+  const W = lc.width, H = lc.height, wallX = 330;
+  // map nm to px: the slit drawn in px proportional to slit width (scale 1 px = 1.6 nm, capped)
+  const scale = 0.8; // px per nm
+  const slitPx = Math.max(6, Math.min(260, L.slit * scale));
+  const lamPx = Math.max(4, L.lam * scale);
+  const k = 2 * Math.PI / lamPx;
+  const cx = wallX, cy = H / 2;
+  const M = 28; const srcs = Array.from({ length: M }, (_, i) => cy - slitPx / 2 + (i + 0.5) * slitPx / M);
+  const sx = (W - wallX) / GW, sy = H / GH;
+  const d = img.data;
+  for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+    const x = wallX + gx * sx, y = gy * sy;
+    let re = 0, im = 0;
+    for (const s of srcs) { const r = Math.hypot(x - cx, y - s) + 1; const ph = k * r - L.t; re += Math.cos(ph) / Math.sqrt(r); im += Math.sin(ph) / Math.sqrt(r); }
+    const v = re / M * 3.2; // instantaneous field
+    const a = Math.max(0, Math.min(1, Math.abs(v)));
+    const o = (gy * GW + gx) * 4;
+    d[o] = 242 * a + 17 * (1 - a); d[o + 1] = 193 * a * (v > 0 ? 1 : 0.75) + 15 * (1 - a); d[o + 2] = 78 * a + 34 * (1 - a); d[o + 3] = 255;
+  }
+  ox.putImageData(img, 0, 0);
+  lx.fillStyle = COL.night; lx.fillRect(0, 0, W, H);
+  lx.imageSmoothingEnabled = true; lx.drawImage(off, wallX, 0, W - wallX - 150, H);
+  // incoming plane waves
+  for (let x = wallX - ((L.t / k) % lamPx); x > 20; x -= lamPx) { lx.strokeStyle = "rgba(242,193,78,0.8)"; lx.lineWidth = Math.max(2, Math.min(6, lamPx / 6)); lx.beginPath(); lx.moveTo(x, 40); lx.lineTo(x, H - 40); lx.stroke(); }
+  // wall
+  lx.fillStyle = "#2D2840"; lx.fillRect(wallX - 8, 20, 16, cy - slitPx / 2 - 20); lx.fillRect(wallX - 8, cy + slitPx / 2, 16, H - 20 - cy - slitPx / 2);
+  lx.strokeStyle = COL.line; lx.strokeRect(wallX - 8, 20, 16, H - 40);
+  // screen intensity (Fraunhofer-like time-averaged)
+  const scrX = W - 150, D = scrX - wallX;
+  lx.fillStyle = "#6B6584"; lx.fillRect(scrX, 20, 10, H - 40);
+  lx.beginPath(); lx.moveTo(scrX + 14, 20);
+  let peak = 0; const prof = [];
+  for (let y = 20; y <= H - 20; y += 2) { let re = 0, im = 0; for (const s of srcs) { const r = Math.hypot(D, y - s); re += Math.cos(k * r); im += Math.sin(k * r); } const I = (re * re + im * im) / (M * M); prof.push([y, I]); peak = Math.max(peak, I); }
+  prof.forEach(([y, I]) => lx.lineTo(scrX + 14 + (I / peak) * 120, y)); lx.lineTo(scrX + 14, H - 20); lx.closePath();
+  lx.fillStyle = "rgba(237,178,122,0.85)"; lx.fill();
+  // spot width at half max
+  const half = prof.filter(([, I]) => I >= peak / 2); const fw = half.length ? (half[half.length - 1][0] - half[0][0]) : 0;
+  const spreadNm = fw / scale;
+  $("#spreadOut").textContent = Math.round(spreadNm) + " nm";
+  const ratio = spreadNm / L.slit;
+  const po = $("#printOut"); po.textContent = ratio < 1.4 ? "Sharp" : ratio < 2.5 ? "Soft" : "Blurry"; po.className = ratio < 1.4 ? "ok" : ratio < 2.5 ? "warn" : "bad";
+  // labels
+  lx.fillStyle = COL.ink; lx.font = "600 16px IBM Plex Sans, sans-serif"; lx.fillText("light λ = " + L.lam + " nm", 24, 30);
+  lx.fillText("mask opening " + L.slit + " nm", wallX - 70, H - 14);
+  lx.fillText("screen", scrX - 10, 16);
+}
+function loopLight() { L.t += reduce ? 0 : 0.35; lightFrame(); L.raf = requestAnimationFrame(loopLight); }
+function startLight() { if (!L.raf) { if (reduce) lightFrame(); else loopLight(); } }
+function stopLight() { cancelAnimationFrame(L.raf); L.raf = 0; }
+function setLam(v) { L.lam = +v; $("#lam").value = v; $("#lamOut").textContent = v + " nm"; $("#ratioOut").textContent = (L.slit / L.lam).toFixed(2); if (reduce) lightFrame(); }
+$("#lam").addEventListener("input", (e) => { setLam(e.target.value); $$("#lightPreset button").forEach((b) => b.setAttribute("aria-pressed", "false")); });
+$("#slit").addEventListener("input", (e) => { L.slit = +e.target.value; $("#slitOut").textContent = L.slit + " nm"; $("#ratioOut").textContent = (L.slit / L.lam).toFixed(2); if (reduce) lightFrame(); });
+seg("lightPreset", (b) => { setLam(b.dataset.l); SFX.whoosh(); });
+
+/* ================= LAB 3: RESOLUTION ================= */
+const rc = $("#rc"), rx = rc.getContext("2d");
+const R = { l: 193, na: 1.35, k: 0.3, tp: 40 };
+function drawRes() {
+  const Rn = R.k * R.l / R.na, dof = 0.5 * R.l / (R.na * R.na);
+  $("#rlOut").textContent = R.l + " nm"; $("#rnaOut").textContent = R.na.toFixed(2); $("#rkOut").textContent = R.k.toFixed(2); $("#tpOut").textContent = R.tp + " nm";
+  $("#rOut").textContent = Rn.toFixed(1) + " nm"; $("#dofOut").textContent = dof.toFixed(0) + " nm";
+  const ok = R.tp >= Rn, close = R.tp >= Rn * 0.85;
+  const ro = $("#resOut"); ro.textContent = ok ? "Prints" : close ? "Barely" : "Fails"; ro.className = ok ? "ok" : close ? "warn" : "bad";
+  const W = rc.width, H = rc.height; rx.fillStyle = COL.night; rx.fillRect(0, 0, W, H);
+  // contrast model: modulation falls off as half-pitch approaches R
+  const m = Math.max(0, Math.min(1, (R.tp / Rn - 0.75) / 0.5));
+  const pxPer = Math.min(6, 220 / R.tp); const p = 2 * R.tp * pxPer;
+  // top: aerial image profile
+  rx.fillStyle = COL.muted; rx.font = "600 15px IBM Plex Sans, sans-serif"; rx.fillText("Light on the wafer (aerial image)", 40, 40);
+  rx.beginPath(); rx.moveTo(40, 190);
+  for (let x = 40; x <= W - 40; x += 2) { const ph = ((x - 40) % p) / p; const I = 0.5 + 0.5 * m * Math.cos(2 * Math.PI * ph); rx.lineTo(x, 190 - I * 120); }
+  rx.lineTo(W - 40, 190); rx.closePath(); rx.fillStyle = "rgba(242,193,78,0.75)"; rx.fill();
+  rx.strokeStyle = "rgba(141,130,224,0.6)"; rx.setLineDash([8, 6]); rx.beginPath(); rx.moveTo(40, 130); rx.lineTo(W - 40, 130); rx.stroke(); rx.setLineDash([]);
+  rx.fillStyle = COL.violet; rx.fillText("resist threshold", W - 170, 124);
+  // bottom: printed lines (top view)
+  rx.fillStyle = COL.muted; rx.fillText("What gets printed (seen from above)", 40, 250);
+  for (let x = 40; x <= W - 40; x += 2) {
+    const ph = ((x - 40) % p) / p; const I = 0.5 + 0.5 * m * Math.cos(2 * Math.PI * ph);
+    const printed = m > 0.05 && I > 0.5;
+    rx.fillStyle = m < 0.05 ? "rgba(237,178,122,0.35)" : printed ? COL.amber : "#2D2840";
+    rx.fillRect(x, 270, 2, 230);
+  }
+  if (m < 0.05) { rx.fillStyle = COL.bad; rx.font = "700 26px Sora, sans-serif"; rx.fillText("Lines melt into one grey blur", 60, 400); }
+  rx.fillStyle = COL.muted; rx.font = "500 14px JetBrains Mono, monospace"; rx.fillText(`half-pitch ${R.tp} nm · limit ${Rn.toFixed(1)} nm · a hair is ~80,000 nm`, 40, 535);
+}
+seg("machine", (b) => { const [l, na, k] = b.dataset.p.split(",").map(Number); Object.assign(R, { l, na, k }); $("#rl").value = l; $("#rna").value = na; $("#rk").value = k; SFX.whoosh(); drawRes(); });
+$("#rl").addEventListener("input", (e) => { R.l = +e.target.value; drawRes(); });
+$("#rna").addEventListener("input", (e) => { R.na = +e.target.value; drawRes(); });
+$("#rk").addEventListener("input", (e) => { R.k = +e.target.value; drawRes(); });
+$("#tp").addEventListener("input", (e) => { R.tp = +e.target.value; SFX.tick(); drawRes(); });
+
+/* ================= LAB 4: OVERLAY ================= */
+const oc = $("#oc"), ocx = oc.getContext("2d");
+const O = { x: 0, y: 0, best: null, flash: 0, drag: null };
+function newWafer() { O.x = Math.round((Math.random() * 2 - 1) * 60); O.y = Math.round((Math.random() * 2 - 1) * 60); if (Math.abs(O.x) < 15) O.x += 25; drawOverlay(); }
+function drawOverlay() {
+  const W = oc.width, H = oc.height, cx = W / 2, cy = H / 2, s = 2.4; // px per nm
+  ocx.fillStyle = COL.night; ocx.fillRect(0, 0, W, H);
+  ocx.strokeStyle = "rgba(141,130,224,0.08)"; for (let x = cx % 24; x < W; x += 24) { ocx.beginPath(); ocx.moveTo(x, 0); ocx.lineTo(x, H); ocx.stroke(); } for (let y = cy % 24; y < H; y += 24) { ocx.beginPath(); ocx.moveTo(0, y); ocx.lineTo(W, y); ocx.stroke(); }
+  ocx.strokeStyle = COL.violet; ocx.lineWidth = 34; ocx.strokeRect(cx - 170, cy - 170, 340, 340);
+  ocx.fillStyle = Math.hypot(O.x, O.y) <= 2 ? COL.good : COL.amber;
+  ocx.globalAlpha = 0.92; ocx.fillRect(cx - 70 + O.x * s, cy - 70 + O.y * s, 140, 140); ocx.globalAlpha = 1;
+  ocx.strokeStyle = "rgba(238,234,248,0.35)"; ocx.lineWidth = 1; ocx.setLineDash([6, 6]); ocx.beginPath(); ocx.moveTo(cx, 30); ocx.lineTo(cx, H - 30); ocx.moveTo(30, cy); ocx.lineTo(W - 30, cy); ocx.stroke(); ocx.setLineDash([]);
+  if (O.flash > 0) { ocx.fillStyle = `rgba(242,193,78,${O.flash * 0.5})`; ocx.fillRect(0, 0, W, H); }
+  ocx.fillStyle = COL.muted; ocx.font = "500 15px IBM Plex Sans, sans-serif"; ocx.fillText("violet frame = mark on the layer below · amber box = mark on the new mask", 24, 30);
+  ocx.fillText("1 nm on screen = 2.4 px (real marks are tens of micrometres; the stage measures them to under 1 nm)", 24, H - 18);
+  const f = (v) => (v > 0 ? "+" : "") + v + " nm";
+  const ax = Math.abs(O.x), ay = Math.abs(O.y);
+  $("#oxOut").textContent = f(O.x); $("#oxOut").className = ax <= 2 ? "ok" : ax <= 10 ? "warn" : "bad";
+  $("#oyOut").textContent = f(O.y); $("#oyOut").className = ay <= 2 ? "ok" : ay <= 10 ? "warn" : "bad";
+  $("#bestOut").textContent = O.best == null ? "–" : O.best.toFixed(1) + " nm";
+}
+function nudge(dx, dy) { O.x += dx; O.y += dy; SFX.nudge(); drawOverlay(); }
+$$("#lab-overlay [data-dx]").forEach((b) => b.addEventListener("click", () => nudge(+b.dataset.dx, +b.dataset.dy)));
+oc.addEventListener("keydown", (e) => { const st = e.shiftKey ? 1 : 10; const m = { ArrowLeft: [-st, 0], ArrowRight: [st, 0], ArrowUp: [0, -st], ArrowDown: [0, st] }[e.key]; if (m) { e.preventDefault(); nudge(...m); } if (e.key === "Enter" || e.key === " ") { e.preventDefault(); exposeO(); } });
+oc.addEventListener("pointerdown", (e) => { O.drag = { x: e.clientX, y: e.clientY, ox: O.x, oy: O.y }; oc.setPointerCapture(e.pointerId); oc.focus(); });
+oc.addEventListener("pointermove", (e) => { if (!O.drag) return; const k = oc.width / oc.getBoundingClientRect().width / 2.4; O.x = Math.round(O.drag.ox + (e.clientX - O.drag.x) * k); O.y = Math.round(O.drag.oy + (e.clientY - O.drag.y) * k); drawOverlay(); });
+oc.addEventListener("pointerup", () => { O.drag = null; });
+function exposeO() {
+  const err = Math.hypot(O.x, O.y); SFX.flash();
+  animate(500, (t) => { O.flash = 1 - t; drawOverlay(); }, () => {
+    O.flash = 0;
+    if (err <= 2) { O.best = O.best == null ? err : Math.min(O.best, err); SFX.success(); toast(`Aligned to ${err.toFixed(1)} nm. That is about ${Math.max(1, Math.round(err / 0.235))} silicon atoms. Chip works!`); }
+    else { SFX.fail(); toast(`Off by ${err.toFixed(1)} nm. The new wires miss the layer below. Try again.`); }
+    drawOverlay();
+  });
+}
+$("#exposeO").addEventListener("click", exposeO);
+$("#newO").addEventListener("click", () => { SFX.click(); newWafer(); });
+
+/* ================= QUIZ ================= */
+const QZ = [
+  { q: "In photolithography, what plays the role of the camera film?", o: ["The photomask", "The photoresist", "The silicon wafer", "The lens"], a: 1, e: "Photoresist is the light-sensitive coating. The mask is more like the negative." },
+  { q: "Why does the industry keep moving to shorter wavelengths?", o: ["Shorter light is cheaper", "Light spreads out (diffracts) less relative to small openings", "Short light is brighter", "It heats the wafer less"], a: 1, e: "Diffraction blurs features close to the wavelength. A smaller wavelength is a finer marker tip." },
+  { q: "With positive resist, what happens to the exposed areas?", o: ["They harden and stay", "They dissolve in the developer", "They turn into metal", "Nothing until etching"], a: 1, e: "Positive: light erases. Negative: light glues." },
+  { q: "R = k₁·λ/NA. Which change makes R smaller?", o: ["Longer λ", "Smaller NA", "Bigger NA", "Bigger k₁"], a: 2, e: "A wider lens (bigger NA) catches more detail. The catch is a shallower depth of focus." },
+  { q: "Why are lithography rooms lit in yellow?", o: ["It looks modern", "Yellow light kills bacteria", "Resist ignores yellow light but reacts to blue and UV", "Yellow saves energy"], a: 2, e: "Filtering out blue and UV keeps room light from exposing the resist, like a darkroom safelight." },
+  { q: "Roughly how precisely must a new layer line up with the one below on an EUV chip?", o: ["About 1 mm", "About 1 µm", "About 100 nm", "About 1–1.5 nm"], a: 3, e: "Modern scanners match layers to around 1 nm, only a few atoms." },
+];
+let qScore = 0, qDone = 0;
+function renderQuiz() {
+  $("#quizBox").innerHTML = QZ.map((q, i) => `<div class="q" data-i="${i}"><p>${i + 1}. ${q.q}</p><div class="opts">${q.o.map((o, j) => `<button data-j="${j}">${o}</button>`).join("")}</div><p class="fb" hidden></p></div>`).join("");
+  $$(".q").forEach((box) => { const q = QZ[+box.dataset.i]; $$("button", box).forEach((b) => b.addEventListener("click", () => {
+    if (box.dataset.done) return; box.dataset.done = 1; qDone++;
+    const j = +b.dataset.j; const right = j === q.a; if (right) { qScore++; SFX.success(); } else SFX.fail();
+    $$("button", box).forEach((x) => { const k = +x.dataset.j; if (k === q.a) x.classList.add("right"); else if (k === j) x.classList.add("wrong"); x.disabled = true; });
+    const fb = $(".fb", box); fb.hidden = false; fb.textContent = (right ? "Correct. " : "Not quite. ") + q.e;
+    $("#quizScore").textContent = `Score: ${qScore} / ${QZ.length}` + (qDone === QZ.length ? (qScore >= 5 ? " · Fab-ready!" : " · Try the labs again and retake it.") : "");
+  })); });
+}
+
+/* ---------------- boot ---------------- */
+resetSlice(); $("#roThick").textContent = thick().toFixed(2) + " µm";
+setLam(193); $("#slitOut").textContent = L.slit + " nm"; lightFrame();
+drawRes(); newWafer(); renderQuiz(); route();
+})();
+</script>
+
+</body></html>
